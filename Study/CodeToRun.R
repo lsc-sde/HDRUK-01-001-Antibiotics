@@ -20,10 +20,14 @@ library(DrugExposureDiagnostics)
 library(omopgenerics)
 library(stringr)
 
+install.packages("odbc")
+install.packages("usethis")
+library(usethis)
+edit_r_environ()
 # database metadata and connection details
 # The name/ acronym for the database
 
-db_name <- "..."
+db_name <- "IDRIL_1"
 
 # Database connection details
 # In this study we also use the DBI package to connect to the database
@@ -33,25 +37,32 @@ db_name <- "..."
 # you may need to install another package for this 
 # eg for postgres 
 
-db <- dbConnect("...",
-                dbname = "...",
-                port = "...",
-                host = "...", 
-                user = "...", 
-                password = "...",
-                bigint = c("numeric"))
+#db <- dbConnect("...",
+#                dbname = "...",
+#                port = "...",
+#                host = "...", 
+#                user = "...", 
+#                password = "...",
+#                bigint = c("numeric"))
+
+db <- DBI::dbConnect(odbc::odbc(),
+                      Driver   = "ODBC Driver 17 for SQL Server",
+                      Server   = Sys.getenv("DB_SERVER"),
+                      Database = Sys.getenv("DATABASE"),
+                      trusted_connection = "yes",
+                      bigint = c("numeric"))
 
 # Set database details ----- 
 
 # The name of the schema that contains the OMOP CDM with patient-level data 
-cdm_schema <- "..."
+cdm_schema <- "gold"
 
 # The name of the schema where results tables will be created  
-write_schema <- "..."
+write_schema <- "dev_tim"
 
 # Table prefix -----
 # any tables created in the database during the analysis will start with this prefix
-study_prefix <- "..."
+study_prefix <- "ab_"
 
 # create cdm reference -----
 cdm <- CDMConnector::cdmFromCon(con = db,
@@ -59,6 +70,10 @@ cdm <- CDMConnector::cdmFromCon(con = db,
                                 writeSchema = write_schema,
                                 cdmName = db_name,
                                 writePrefix = study_prefix)
+
+cdm$observation_period <- cdm$observation_period |>
+  dplyr::mutate(observation_period_start_date = as.Date(.data$observation_period_start_date), observation_period_end_date = as.Date(.data$observation_period_end_date))
+
 
 # Study start date -----
 # The earliest start date for this study "2012-01-01".
